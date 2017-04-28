@@ -6,9 +6,18 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	s:=NewScheduler()
+	s := NewScheduler()
 	s.addJob(1, func() error {
-		log.Info("test")
+		log.Info("test", "doing job:1")
+		return nil
+	})
+	s.addJob(3, func() error {
+		log.Info("test", "doing job:3")
+		return nil
+	})
+
+	s.addJob(7, func() error {
+		log.Info("test", "doing job:7")
 		return nil
 	})
 
