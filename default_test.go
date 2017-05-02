@@ -21,6 +21,12 @@ func TestServer(t *testing.T) {
 		return nil
 	})
 
-	s.Work()
+	go s.Work()
 
+	s.addJob(5, func() error {
+		log.Info("test", "doing job:5")
+		return nil
+	})
+
+	<-(chan int)(nil)
 }

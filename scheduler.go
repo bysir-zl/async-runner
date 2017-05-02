@@ -1,8 +1,8 @@
 package async_runner
 
 import (
-	"time"
 	"github.com/bysir-zl/bygo/log"
+	"time"
 )
 
 type Scheduler struct {
@@ -27,14 +27,14 @@ func (p *Scheduler) Work() {
 	preTime := time.Now()
 	for {
 		nowTime := time.Now()
-		//time.Sleep(time.Second)
-		go p.doJobs(p.CurrIndex)
+		jobs := p.Tasks[p.CurrIndex].Jobs
+		go p.doJobs(jobs)
 
 		time.Sleep(preTime.Add(time.Second).Sub(nowTime))
 		preTime = preTime.Add(time.Second)
 
 		p.CurrIndex++
-		if p.CurrIndex == 3600 - 1 {
+		if p.CurrIndex == 3600 {
 			p.CurrIndex = 0
 			log.Info("runner", "runed 1 hour")
 			// 应该是上一次时间的一个小时后
@@ -43,9 +43,8 @@ func (p *Scheduler) Work() {
 	}
 }
 
-func (p *Scheduler) doJobs(index int32) {
-	jobs := p.Tasks[index].Jobs
-	if jobs == nil || len(jobs) == 0 {
+func (p *Scheduler) doJobs(jobs []*Job) {
+	if len(jobs) == 0 {
 		return
 	}
 
@@ -54,7 +53,7 @@ func (p *Scheduler) doJobs(index int32) {
 			go func() {
 				err := (*job).Run()
 				if err != nil {
-					// todo logger
+					// todo retry logic
 				}
 			}()
 		} else {
@@ -66,10 +65,16 @@ func (p *Scheduler) doJobs(index int32) {
 // 秒为单位
 func (p *Scheduler) addJob(duration int64, fun func() error) {
 	deep := duration / 3600
-	index := int32(duration % 3600) + p.CurrIndex
+	index := int32(duration%3600) + p.CurrIndex
 
-	p.Tasks[index].Jobs = append(p.Tasks[index].Jobs, &Job{
+	job := &Job{
 		Deep: deep,
 		Run:  fun,
-	})
+	}
+	if duration == 0 {
+		p.doJobs([]*Job{job})
+		return
+	}
+
+	p.Tasks[index].Jobs = append(p.Tasks[index].Jobs, job)
 }
