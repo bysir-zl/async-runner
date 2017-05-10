@@ -1,7 +1,8 @@
-package server
+package core
 
 type Job interface {
 	Run() error
+	String() string
 }
 
 // 包裹JOB

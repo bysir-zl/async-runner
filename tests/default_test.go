@@ -10,11 +10,12 @@ import (
 
 func TestHttpServer(t *testing.T) {
 	s := server.NewServer()
-	s.Start()
+	err := s.Start()
+	t.Error(err)
 }
 
 func TestWorker(t *testing.T) {
-	c := client.NewClientHttp()
+	c := client.NewHttpReceiver(":9999")
 	c.AddListener("test", func(data []byte) (err error) {
 		log.Info("test", "runned1", data)
 		return
@@ -24,15 +25,22 @@ func TestWorker(t *testing.T) {
 		return
 	})
 
-	c.StartClientHttp()
+	c.StartServer()
 
-	var i chan int
-	<-i
 }
 
 func TestHttpClintPush(t *testing.T) {
-	c := client.NewClientHttp()
+	c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
 
-	c.Push("test", 171, []byte{1,10})
+	c.Push("test", 1, []byte{1,10})
 	//c.Push("test1", 1, []byte(`{"b":1}`))
+}
+
+func BenchmarkPush(b *testing.B) {
+	c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
+
+
+	for i := 0; i < b.N; i++ {
+		c.Push("test", 1, []byte{1,10})
+	}
 }

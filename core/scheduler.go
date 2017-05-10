@@ -1,4 +1,4 @@
-package server
+package core
 
 import (
 	"github.com/bysir-zl/bygo/log"
@@ -53,24 +53,27 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 	deletedCount := 0
 	for i, jobWrap := range *jobWarps {
 		if jobWrap.Deep == 0 {
-			go func(jobWrap *JobWrap) {
+			go func(jobWrap JobWrap) {
 				jobWrap.Count++
 				err := jobWrap.job.Run()
 				if err != nil {
 					// retry 4 times
 					if jobWrap.Count != 5 {
 						sleepTime := jobWrap.Count*4 - 1
-						log.Warn("runner-server", "retry job after %ds, count: %d ,err :%v", sleepTime, jobWrap.Count, err)
+						log.Warn("runner", "job retrying (%v) , after %s, count: %d ,err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
-						p.addJobWrap(sleepTime, *jobWrap)
+						p.addJobWrap(sleepTime, jobWrap)
+					} else {
+						log.Warn("runner", "job fail (%v), err: %v", jobWrap.job, err)
 					}
+				} else {
+					log.Info("runner", "job success (%v)", jobWrap.job)
 				}
-			}(jobWrap)
+			}(*jobWrap)
 
 			// remove job
 			*jobWarps = append((*jobWarps)[:i-deletedCount], (*jobWarps)[i+1-deletedCount:]...)
 			deletedCount++
-
 		} else {
 			(*jobWarps)[i].Deep--
 		}
@@ -79,7 +82,7 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 }
 
 // 秒为单位
-func (p *Scheduler) addJob(duration int64, job Job, count int64) {
+func (p *Scheduler) AddJob(duration int64, job Job) {
 	deep := duration / 3600
 	index := int32(duration%3600) + p.CurrIndex
 	if index >= 3600 {
@@ -87,7 +90,9 @@ func (p *Scheduler) addJob(duration int64, job Job, count int64) {
 		deep ++
 	}
 
-	jobWrap := &JobWrap{Deep: deep, Count: count, job: job}
+	jobWrap := &JobWrap{Deep: deep, job: job}
+
+	log.Info("runner", "job added: (%v)", job)
 
 	if duration == 0 {
 		p.doJobs(&[]*JobWrap{jobWrap})

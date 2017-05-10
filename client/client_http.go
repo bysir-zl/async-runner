@@ -2,25 +2,40 @@ package client
 
 import (
 	"fmt"
-	"github.com/bysir-zl/bygo/log"
 	"github.com/valyala/fasthttp"
 	"strings"
 )
-
-type ClientHttp struct {
-	Listeners map[string]Listener
-}
-
 type Listener func(body []byte) error
 
-func NewClientHttp() *ClientHttp {
-	return &ClientHttp{
-		Listeners: map[string]Listener{},
+type HttpReceiver struct {
+	listeners  map[string]Listener
+	listenAddr string
+}
+
+type HttpPusher struct {
+	callbackAddr string
+	serverAddr   string
+}
+
+// 在startServer后会监听listenAddr地址
+func NewHttpReceiver(listenAddr string) *HttpReceiver {
+	return &HttpReceiver{
+		listeners:  map[string]Listener{},
+		listenAddr: listenAddr,
 	}
 }
 
-func (p *ClientHttp) StartClientHttp() {
-	go fasthttp.ListenAndServe(":9999", func(ctx *fasthttp.RequestCtx) {
+// callbackAddr 服务器地址，callbackAddr 回调地址 同时会监听回调地址以实现Listener功能
+func NewHttpPusher(serverAddr, callbackAddr string) *HttpPusher {
+	return &HttpPusher{
+		callbackAddr: callbackAddr,
+		serverAddr:   serverAddr,
+	}
+}
+
+// 开启阻塞服务
+func (p *HttpReceiver) StartServer() (err error) {
+	err = fasthttp.ListenAndServe(p.listenAddr, func(ctx *fasthttp.RequestCtx) {
 		uri := ctx.Request.URI()
 		path := string(uri.Path())
 		pathS := strings.Split(path, "/")
@@ -30,7 +45,12 @@ func (p *ClientHttp) StartClientHttp() {
 		data := ctx.Request.PostArgs().Peek("data")
 
 		if pathS[1] == "do_job" {
-			err := p.Listeners[topic](data)
+			fun, ok := p.listeners[topic]
+			if !ok {
+				ctx.WriteString("no topic named :" + topic)
+				return
+			}
+			err := fun(data)
 			if err != nil {
 				ctx.WriteString(err.Error())
 				return
@@ -41,19 +61,21 @@ func (p *ClientHttp) StartClientHttp() {
 		return
 	})
 
+	return
 }
 
-func (p *ClientHttp) AddListener(topic string, listener Listener) {
-	p.Listeners[topic] = listener
+func (p *HttpReceiver) AddListener(topic string, listener Listener) {
+	p.listeners[topic] = listener
 }
 
-func (p *ClientHttp) Push(topic string, timeout int64, data []byte) {
+func (p *HttpPusher) Push(topic string, timeout int64, data []byte) (err error) {
 	arg := fasthttp.Args{}
 	arg.SetBytesV("data", data)
-	_, _, err := fasthttp.Post(nil, fmt.Sprintf("http://127.0.0.1:9989/push?topic=%s&timeout=%d&callback=http://127.0.0.1:9999/", topic, timeout), &arg)
+	_, _, err = fasthttp.Post(nil, fmt.Sprintf("%s/push?topic=%s&timeout=%d&callback=%s", p.serverAddr, topic, timeout, p.callbackAddr), &arg)
 	if err != nil {
-		log.Error("runner-client", "push job error:", err)
+		return
 	}
+	return
 }
 
 func init() {
