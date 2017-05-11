@@ -59,7 +59,7 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 				if err != nil {
 					// retry 4 times
 					if jobWrap.Count != 5 {
-						sleepTime := jobWrap.Count*4 - 1
+						sleepTime := jobWrap.Count * 4 - 1
 						log.Warn("runner", "job retrying (%v) , after %s, count: %d ,err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
 						p.addJobWrap(sleepTime, jobWrap)
@@ -72,7 +72,7 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 			}(*jobWrap)
 
 			// remove job
-			*jobWarps = append((*jobWarps)[:i-deletedCount], (*jobWarps)[i+1-deletedCount:]...)
+			*jobWarps = append((*jobWarps)[:i - deletedCount], (*jobWarps)[i + 1 - deletedCount:]...)
 			deletedCount++
 		} else {
 			(*jobWarps)[i].Deep--
@@ -84,7 +84,7 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 // 秒为单位
 func (p *Scheduler) AddJob(duration int64, job Job) {
 	deep := duration / 3600
-	index := int32(duration%3600) + p.CurrIndex
+	index := int32(duration % 3600) + p.CurrIndex
 	if index >= 3600 {
 		index = index % 3600
 		deep ++
@@ -105,7 +105,7 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 // 秒为单位
 func (p *Scheduler) addJobWrap(duration int64, jobWrap JobWrap) {
 	deep := duration / 3600
-	index := int32(duration%3600) + p.CurrIndex
+	index := int32(duration % 3600) + p.CurrIndex
 	if index >= 3600 {
 		index = index % 3600
 		deep ++

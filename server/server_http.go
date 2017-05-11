@@ -8,6 +8,8 @@ import (
 	"github.com/valyala/fasthttp"
 	"strconv"
 	"strings"
+	"bytes"
+	"encoding/binary"
 )
 
 type HttpServer struct {
@@ -66,12 +68,33 @@ func (p *JobHttp) String() string {
 	return fmt.Sprintf("topic:%s", p.topic)
 }
 
+func (p *JobHttp) Unmarshal(bs []byte) error {
+	err := binary.Read(bs, binary.LittleEndian, p)
+	return err
+}
+
+func (p *JobHttp) Marshal() ([]byte, error) {
+	bf := bytes.Buffer{}
+	err := binary.Write(bf, binary.LittleEndian, p)
+	if err != nil {
+		return nil, err
+	}
+	return bf.Bytes(), nil
+}
+func (p *JobHttp) Unique() []byte {
+	bf := bytes.Buffer{}
+	bf.WriteString(p.callback)
+	bf.WriteString(p.topic)
+	bf.WriteString(p.data)
+	return bf.Bytes()
+}
+
 func (p *JobHttp) Run() (err error) {
 	args := fasthttp.Args{}
 	// fasthttp有点奇葩, post只能是键值对
 	args.SetBytesV("data", p.data)
 
-	_, body, err := defaultClient.Post(nil, p.callback+"/do_job?topic="+p.topic, &args)
+	_, body, err := defaultClient.Post(nil, p.callback + "/do_job?topic=" + p.topic, &args)
 	if err != nil {
 		return
 	}
