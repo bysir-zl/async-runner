@@ -45,6 +45,10 @@ func (p *Scheduler) Work() {
 	}
 }
 
+func (p *Scheduler) findJob(job Job){
+	
+}
+
 func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 	if len(*jobWarps) == 0 {
 		return
