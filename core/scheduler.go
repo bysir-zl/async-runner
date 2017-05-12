@@ -60,7 +60,7 @@ func (p *Scheduler) doJobs(jobWarps *[]*JobWrap) {
 					// retry 4 times
 					if jobWrap.Count != 5 {
 						sleepTime := jobWrap.Count * 4 - 1
-						log.Warn("runner", "job retrying (%v) , after %s, count: %d ,err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
+						log.Warn("runner", "job will retry (%v) after %ds(%dth), err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
 						p.addJobWrap(sleepTime, jobWrap)
 					} else {
@@ -92,7 +92,7 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 
 	jobWrap := &JobWrap{Deep: deep, job: job}
 
-	log.Info("runner", "job added: (%v)", job)
+	log.Info("runner", "job added: (%v), duration: %ds", job,duration)
 
 	if duration == 0 {
 		p.doJobs(&[]*JobWrap{jobWrap})

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/bysir-zl/async-runner/core"
@@ -8,8 +10,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"strconv"
 	"strings"
-	"bytes"
-	"encoding/binary"
 )
 
 type HttpServer struct {
@@ -69,7 +69,8 @@ func (p *JobHttp) String() string {
 }
 
 func (p *JobHttp) Unmarshal(bs []byte) error {
-	err := binary.Read(bs, binary.LittleEndian, p)
+	bf := bytes.NewBuffer(bs)
+	err := binary.Read(bf, binary.LittleEndian, p)
 	return err
 }
 
@@ -85,7 +86,7 @@ func (p *JobHttp) Unique() []byte {
 	bf := bytes.Buffer{}
 	bf.WriteString(p.callback)
 	bf.WriteString(p.topic)
-	bf.WriteString(p.data)
+	bf.Write(p.data)
 	return bf.Bytes()
 }
 
@@ -94,7 +95,7 @@ func (p *JobHttp) Run() (err error) {
 	// fasthttp有点奇葩, post只能是键值对
 	args.SetBytesV("data", p.data)
 
-	_, body, err := defaultClient.Post(nil, p.callback + "/do_job?topic=" + p.topic, &args)
+	_, body, err := defaultClient.Post(nil, p.callback+"/do_job?topic="+p.topic, &args)
 	if err != nil {
 		return
 	}

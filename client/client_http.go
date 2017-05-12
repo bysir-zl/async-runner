@@ -1,10 +1,12 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
 	"strings"
 )
+
 type Listener func(body []byte) error
 
 type HttpReceiver struct {
@@ -45,12 +47,7 @@ func (p *HttpReceiver) StartServer() (err error) {
 		data := ctx.Request.PostArgs().Peek("data")
 
 		if pathS[1] == "do_job" {
-			fun, ok := p.listeners[topic]
-			if !ok {
-				ctx.WriteString("no topic named :" + topic)
-				return
-			}
-			err := fun(data)
+			err := p.Commit(topic, data)
 			if err != nil {
 				ctx.WriteString(err.Error())
 				return
@@ -67,6 +64,23 @@ func (p *HttpReceiver) StartServer() (err error) {
 func (p *HttpReceiver) AddListener(topic string, listener Listener) {
 	p.listeners[topic] = listener
 }
+
+func (p *HttpReceiver) Commit(topic string, data []byte) (err error) {
+	fun, ok := p.listeners[topic]
+	if !ok {
+		err = errors.New("no topic named :" + topic)
+		return
+	}
+	err = fun(data)
+	if err != nil {
+		return
+	}
+
+	return
+
+}
+
+// HttpPusher
 
 func (p *HttpPusher) Push(topic string, timeout int64, data []byte) (err error) {
 	arg := fasthttp.Args{}
