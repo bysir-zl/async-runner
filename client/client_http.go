@@ -82,10 +82,30 @@ func (p *HttpReceiver) Commit(topic string, data []byte) (err error) {
 
 // HttpPusher
 
-func (p *HttpPusher) Push(topic string, timeout int64, data []byte) (err error) {
+func (p *HttpPusher) Add(topic string, timeout int64, data []byte) (err error) {
 	arg := fasthttp.Args{}
 	arg.SetBytesV("data", data)
-	_, _, err = fasthttp.Post(nil, fmt.Sprintf("%s/push?topic=%s&timeout=%d&callback=%s", p.serverAddr, topic, timeout, p.callbackAddr), &arg)
+	_, _, err = fasthttp.Post(nil, fmt.Sprintf("%s/add?topic=%s&timeout=%d&callback=%s", p.serverAddr, topic, timeout, p.callbackAddr), &arg)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (p *HttpPusher) DeleteThenAdd(topic string, timeout int64, data []byte) (err error) {
+	arg := fasthttp.Args{}
+	arg.SetBytesV("data", data)
+	_, _, err = fasthttp.Post(nil, fmt.Sprintf("%s/delete_then_add?topic=%s&timeout=%d&callback=%s", p.serverAddr, topic, timeout, p.callbackAddr), &arg)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (p *HttpPusher) Delete(topic string, data []byte) (err error) {
+	arg := fasthttp.Args{}
+	arg.SetBytesV("data", data)
+	_, _, err = fasthttp.Post(nil, fmt.Sprintf("%s/delete?topic=%s&callback=%s", p.serverAddr, topic, p.callbackAddr), &arg)
 	if err != nil {
 		return
 	}

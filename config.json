@@ -1,0 +1,6 @@
+{
+  "persistence": true,
+  "redis": "localhost:6379",
+  "log": true,
+  "mysql": "root:@tcp(localhost:3306)/test"
+}

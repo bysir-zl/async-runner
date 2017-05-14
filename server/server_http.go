@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/bysir-zl/async-runner/core"
@@ -16,9 +15,13 @@ type HttpServer struct {
 	s *core.Scheduler
 }
 
-func NewServer() *HttpServer {
+func newJobFunc() core.Job {
+	return &JobHttp{}
+}
+
+func NewHttpServer(c *core.SchedulerConfig) *HttpServer {
 	return &HttpServer{
-		s: core.NewScheduler(),
+		s: core.NewScheduler(c, newJobFunc),
 	}
 }
 
@@ -49,9 +52,15 @@ func (p *HttpServer) handlerQuery(ctx *fasthttp.RequestCtx) {
 
 	timeoutInt, _ := strconv.ParseInt(timeout, 10, 64)
 
-	if action == "push" {
+	switch action {
+	case "add":
 		// 添加一个工作
 		p.s.AddJob(timeoutInt, NewJobHttpClient(callback, topic, data))
+	case "delete_then_add":
+		// 删除一个并添加
+		p.s.DeleteThenAddJob(timeoutInt, NewJobHttpClient(callback, topic, data))
+	case "delete":
+		p.s.DeleteJob(NewJobHttpClient(callback, topic, data))
 	}
 }
 
@@ -62,6 +71,8 @@ type JobHttp struct {
 	data            []byte
 }
 
+var sp = "@.@"
+
 var defaultClient fasthttp.Client
 
 func (p *JobHttp) String() string {
@@ -69,25 +80,26 @@ func (p *JobHttp) String() string {
 }
 
 func (p *JobHttp) Unmarshal(bs []byte) error {
-	bf := bytes.NewBuffer(bs)
-	err := binary.Read(bf, binary.LittleEndian, p)
-	return err
+	ds := bytes.Split(bs, []byte(sp))
+	if len(ds) != 3 {
+		return errors.New("data error")
+	}
+	p.topic = string(ds[0])
+	p.callback = string(ds[1])
+	p.data = ds[2]
+
+	return nil
 }
 
 func (p *JobHttp) Marshal() ([]byte, error) {
 	bf := bytes.Buffer{}
-	err := binary.Write(bf, binary.LittleEndian, p)
-	if err != nil {
-		return nil, err
-	}
+	bf.WriteString(p.topic + sp + p.callback + sp)
+	bf.Write(p.data)
 	return bf.Bytes(), nil
 }
 func (p *JobHttp) Unique() []byte {
-	bf := bytes.Buffer{}
-	bf.WriteString(p.callback)
-	bf.WriteString(p.topic)
-	bf.Write(p.data)
-	return bf.Bytes()
+	d, _ := p.Marshal()
+	return d
 }
 
 func (p *JobHttp) Run() (err error) {
