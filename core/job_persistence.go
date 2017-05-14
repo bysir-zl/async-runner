@@ -90,6 +90,9 @@ func InitPersistence(redisHost string) {
 			case jobId := <-willDeleteJobIds:
 				ids = append(ids, jobId)
 			case <-time.Tick(time.Second * 5):
+				log.Info("testD",testDc,testRollCount)
+				log.Info("testD",testJobRunCount)
+
 				if len(ids) == 0 {
 					continue
 				}
@@ -98,7 +101,6 @@ func InitPersistence(redisHost string) {
 					log.Error("runner-pers", err)
 				}
 				ids = []string{}
-				log.Info("testD",len(testD),testDc,testRollCount)
 			}
 		}
 	}()

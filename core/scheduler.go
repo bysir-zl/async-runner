@@ -5,13 +5,16 @@ import (
 	"time"
 	"bytes"
 	"github.com/bysir-zl/orm"
+	"encoding/json"
+	"errors"
+	"sync/atomic"
 )
 
 type Scheduler struct {
-	Tasks      [3600]Task       // 3600个task 每一秒需要执行一个
-	CurrIndex  int32            // 当前正在执行哪个task
-	config     *SchedulerConfig // 是否使用持久化
-	newJobFunc NewJobFunc
+	Tasks      [3600]*Task `json:"tasks"`  // 3600个task 每一秒需要执行一个
+	CurrIndex  int32 `json:"curr_index"`   // 当前正在执行哪个task
+	config     *SchedulerConfig `json:"-"` // 是否使用持久化
+	newJobFunc NewJobFunc `json:"-"`
 }
 
 type Task struct {
@@ -19,6 +22,7 @@ type Task struct {
 }
 
 type SchedulerConfig struct {
+	ServerHttp  string `json:"server_http"`
 	Persistence bool  `json:"persistence"` // 是否使用redis持久化
 	Redis       string `json:"redis"`      // redis
 	Log         bool `json:"log"`          // 是否记录日志
@@ -33,7 +37,9 @@ func NewScheduler(c *SchedulerConfig, newJobFunc NewJobFunc) *Scheduler {
 		newJobFunc: newJobFunc,
 	}
 	for i := 0; i < 3600; i++ {
-		s.Tasks[i].JobWraps = []*JobWrap{}
+		s.Tasks[i] = &Task{
+			JobWraps: []*JobWrap{},
+		}
 	}
 
 	if c.Persistence {
@@ -73,28 +79,33 @@ func (p *Scheduler) LoadFormRedis() (err error) {
 
 // 开启工作循环
 func (p *Scheduler) Work() {
-	preTime := time.Now()
 	d := time.Second
 	for {
-		nowTime := time.Now()
-		jobs := &p.Tasks[p.CurrIndex].JobWraps
+		select {
+		case <-time.Tick(d):
+			jobs := p.GetCurrJobWraps()
+			go p.doJobs(jobs)
 
-		go p.doJobs(jobs)
-
-		time.Sleep(preTime.Add(d).Sub(nowTime))
-		preTime = preTime.Add(d)
-
-		p.CurrIndex++
-		if p.CurrIndex == 3600 {
-			p.CurrIndex = 0
-			log.Info("runner", "runed 1 hour")
-			// 应该是上一次时间的一个小时后
-			// todo 可能会延后,应当修复时间
+			p.CurrIndex++
+			if p.CurrIndex == 3600 {
+				p.CurrIndex = 0
+				log.Info("runner", "runed 1 hour")
+				// 应该是上一次时间的一个小时后
+				// todo 可能会延后,应当修复时间
+			}
 		}
 	}
 }
 
+// todo 对于p.CurrIndex 应该加上原子操作
+// 或者锁, 你得去了解原子操作了
+func (p *Scheduler) GetCurrJobWraps() *[]*JobWrap {
+	jobs := &p.Tasks[p.CurrIndex].JobWraps
+	return jobs
+}
+
 // 删除所有相同job
+// todo 加锁
 func (p *Scheduler) DeleteJob(job Job) (ok bool) {
 	deletedIds := []string{}
 	for i := 0; i < 3600; i++ {
@@ -133,6 +144,7 @@ func (p *Scheduler) DeleteThenAddJob(duration int64, job Job) (deleted bool) {
 }
 
 // 秒为单位
+// todo 加锁
 func (p *Scheduler) AddJob(duration int64, job Job) {
 	if duration < 0 {
 		duration = 0
@@ -166,24 +178,49 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 	}
 }
 
+var testJobRunCount int32 = 0
+
+func (p *Scheduler) doJob(jobWrap *JobWrap) (err error) {
+	workC := make(chan error)
+	timeout := time.Second * 8
+
+	go func() {
+		workC <- jobWrap.job.Run()
+	}()
+
+	select {
+	case err = <-workC:
+		if err != nil {
+			return
+		}
+	case <-time.After(timeout):
+		err = errors.New("timeout")
+		return
+	}
+
+	return
+}
+
 func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 	if len(*jobWraps) == 0 {
 		return
 	}
-	lock.Lock()
-	defer lock.Unlock()
 
-	deletedCount := 0
+	jobWrapsTemp := (*jobWraps)[:0]
+
 	for i := range *jobWraps {
-		jobWrap := (*jobWraps)[i-deletedCount]
+		jobWrap := (*jobWraps)[i]
 		if jobWrap.Deep == 0 {
 			go func(jobWrap *JobWrap) {
 				jobWrap.Count++
-				err := jobWrap.job.Run()
+				atomic.AddInt32(&testJobRunCount, 1)
+				err := p.doJob(jobWrap)
+				//atomic.AddInt32(&testJobRunCount, -1)
 				if err != nil {
 					// retry 4 times
-					if jobWrap.Count != 2 {
-						sleepTime := jobWrap.Count*4 - 1
+					if jobWrap.Count < 2 {
+						var sleepTime int64 = 1
+						//sleepTime := jobWrap.Count*4 - 1
 						log.Warn("runner", "job will retry (%v) after %ds(%dth), err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
 						p.rollbackJobWrap(sleepTime, jobWrap)
@@ -209,20 +246,25 @@ func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 					}
 				}
 			}(jobWrap)
-
-			// remove job
-			*jobWraps = append((*jobWraps)[:i-deletedCount], (*jobWraps)[i+1-deletedCount:]...)
-			deletedCount++
 		} else {
 			jobWrap.Deep--
+			jobWrapsTemp = append(jobWrapsTemp, jobWrap)
 		}
 	}
 
+	*jobWraps = jobWrapsTemp
+
 }
-var testRollCount = 0
-// 秒为单位
+
+var testRollCount int32 = 0
+// 回滚一个job, 秒为单位
+// todo 锁
 func (p *Scheduler) rollbackJobWrap(duration int64, jobWrap *JobWrap) {
-	testRollCount++
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	atomic.AddInt32(&testRollCount, 1)
 	if duration < 0 {
 		duration = 0
 	}
@@ -240,4 +282,9 @@ func (p *Scheduler) rollbackJobWrap(duration int64, jobWrap *JobWrap) {
 	}
 
 	p.Tasks[index].JobWraps = append(p.Tasks[index].JobWraps, jobWrap)
+}
+
+func (p *Scheduler) Info() string {
+	d, _ := json.Marshal(p)
+	return string(d)
 }

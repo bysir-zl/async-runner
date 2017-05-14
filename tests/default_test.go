@@ -36,7 +36,6 @@ func TestWorker(t *testing.T) {
 	})
 
 	c.StartServer()
-
 }
 
 // 3. 模拟发送一个job

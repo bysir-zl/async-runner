@@ -13,6 +13,7 @@ import (
 
 type HttpServer struct {
 	s *core.Scheduler
+	c *core.SchedulerConfig
 }
 
 func newJobFunc() core.Job {
@@ -22,13 +23,14 @@ func newJobFunc() core.Job {
 func NewHttpServer(c *core.SchedulerConfig) *HttpServer {
 	return &HttpServer{
 		s: core.NewScheduler(c, newJobFunc),
+		c: c,
 	}
 }
 
 func (p *HttpServer) Start() (err error) {
 	go p.s.Work()
 	log.Info("server_http", "start server success")
-	err = fasthttp.ListenAndServe(":9989", func(ctx *fasthttp.RequestCtx) {
+	err = fasthttp.ListenAndServe(p.c.ServerHttp, func(ctx *fasthttp.RequestCtx) {
 		p.handlerQuery(ctx)
 		return
 	})
@@ -61,6 +63,10 @@ func (p *HttpServer) handlerQuery(ctx *fasthttp.RequestCtx) {
 		p.s.DeleteThenAddJob(timeoutInt, NewJobHttpClient(callback, topic, data))
 	case "delete":
 		p.s.DeleteJob(NewJobHttpClient(callback, topic, data))
+	case "info":
+		info := p.s.Info()
+		ctx.Response.Header.Add("content-type", "json")
+		ctx.WriteString(info)
 	}
 }
 
@@ -103,6 +109,8 @@ func (p *JobHttp) Unique() []byte {
 }
 
 func (p *JobHttp) Run() (err error) {
+	err = errors.New("sb")
+	return
 	args := fasthttp.Args{}
 	// fasthttp有点奇葩, post只能是键值对
 	args.SetBytesV("data", p.data)
