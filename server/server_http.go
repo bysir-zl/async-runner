@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type HttpServer struct {
@@ -35,6 +36,12 @@ func (p *HttpServer) Start() (err error) {
 		return
 	})
 	return
+}
+
+var jobPull = sync.Pool{
+	New: func() interface{} {
+		return new(JobHttp)
+	},
 }
 
 func (p *HttpServer) handlerQuery(ctx *fasthttp.RequestCtx) {
@@ -103,6 +110,7 @@ func (p *JobHttp) Marshal() ([]byte, error) {
 	bf.Write(p.data)
 	return bf.Bytes(), nil
 }
+
 func (p *JobHttp) Unique() []byte {
 	d, _ := p.Marshal()
 	return d

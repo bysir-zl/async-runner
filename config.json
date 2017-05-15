@@ -3,5 +3,6 @@
   "persistence": true,
   "redis": "localhost:6379",
   "log": true,
-  "mysql": "root:@tcp(localhost:3306)/test"
+  "mysql": "root:@tcp(localhost:3306)/test",
+  "retry":[3,7,17,30]
 }

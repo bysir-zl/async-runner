@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/bysir-zl/async-runner/server"
-	"io/ioutil"
-	"github.com/bysir-zl/orm"
-	"github.com/bysir-zl/async-runner/core"
 	"encoding/json"
+	"github.com/bysir-zl/async-runner/core"
+	"github.com/bysir-zl/async-runner/server"
+	"github.com/bysir-zl/orm"
+	"io/ioutil"
 )
 
 var c core.SchedulerConfig
@@ -21,12 +21,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(bs,&c)
+	err = json.Unmarshal(bs, &c)
 	if err != nil {
 		panic(err)
 	}
 
-	if  c.Persistence{
+	if c.Log {
 		orm.RegisterDb("default", "mysql", c.MysqlLink)
 		orm.RegisterModel((*core.JobModel)(nil))
 	}

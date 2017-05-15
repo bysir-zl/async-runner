@@ -20,7 +20,7 @@ type JobWrap struct {
 
 	IdDb  string // 入库的ID，唯一标识
 	Deep  int64  // 圈数，一圈1小时
-	Count int64  // 第几次运行
+	Count int  // 第几次运行
 
 	RunTime int64 // 运行时间戳,只在持久化时入库出库使用
 }

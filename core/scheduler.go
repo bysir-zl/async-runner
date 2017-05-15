@@ -30,6 +30,7 @@ type SchedulerConfig struct {
 	Redis       string `json:"redis"`      // redis
 	Log         bool `json:"log"`          // 是否记录日志
 	MysqlLink   string `json:"mysql"`      // mysql
+	Retry       []int `json:"retry"`       // 重试延时
 }
 
 type NewJobFunc func() Job
@@ -241,9 +242,9 @@ func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 				err := p.doJob(jobWrap)
 				if err != nil {
 					// retry 4 times
-					if jobWrap.Count < 5 {
+					if jobWrap.Count <= len(p.config.Retry) {
 						//var sleepTime int64 = 1
-						sleepTime := jobWrap.Count*4 - 1
+						sleepTime := int64(p.config.Retry[jobWrap.Count-1])
 						log.Warn("runner", "job will retry (%v) after %ds(%dth), err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
 						p.rollbackJobWrap(sleepTime, jobWrap)

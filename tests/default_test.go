@@ -43,14 +43,14 @@ func TestHttpClintPush(t *testing.T) {
 	c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
 
 	n := time.Now()
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1; i++ {
 		c.Add("test", 1, []byte{1, 10})
 	}
-	log.Info("time", time.Now().Sub(n))
 	//c.Delete("test", []byte{1, 10})
 	//c.DeleteThenAdd("test", 10, []byte{1, 10})
 	//c.Delete("test", []byte{1, 10})
 	//c.Add("test1", 1, []byte(`{"b":1}`))
+	log.Info("time", time.Now().Sub(n))
 }
 
 // 26284002 ns/op  同步调用数据库
@@ -58,7 +58,6 @@ func TestHttpClintPush(t *testing.T) {
 // 361076 ns/op 改为redis
 func BenchmarkPush(b *testing.B) {
 	c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
-
 	for i := 0; i < b.N; i++ {
 		c.Add("test", 1, []byte{1, 10})
 	}
