@@ -109,8 +109,6 @@ func (p *JobHttp) Unique() []byte {
 }
 
 func (p *JobHttp) Run() (err error) {
-	err = errors.New("sb")
-	return
 	args := fasthttp.Args{}
 	// fasthttp有点奇葩, post只能是键值对
 	args.SetBytesV("data", p.data)

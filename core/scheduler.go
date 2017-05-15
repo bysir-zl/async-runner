@@ -1,13 +1,14 @@
 package core
 
 import (
-	"github.com/bysir-zl/bygo/log"
-	"time"
 	"bytes"
-	"github.com/bysir-zl/orm"
 	"encoding/json"
 	"errors"
+	"github.com/bysir-zl/bygo/log"
+	"github.com/bysir-zl/orm"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type Scheduler struct {
@@ -15,10 +16,12 @@ type Scheduler struct {
 	CurrIndex  int32 `json:"curr_index"`   // 当前正在执行哪个task
 	config     *SchedulerConfig `json:"-"` // 是否使用持久化
 	newJobFunc NewJobFunc `json:"-"`
+	sync.Mutex // 锁全部Task
 }
 
 type Task struct {
 	JobWraps []*JobWrap // 当前task里的任务
+	sync.Mutex          // 锁一个Task
 }
 
 type SchedulerConfig struct {
@@ -86,7 +89,7 @@ func (p *Scheduler) Work() {
 			jobs := p.GetCurrJobWraps()
 			go p.doJobs(jobs)
 
-			p.CurrIndex++
+			atomic.AddInt32(&p.CurrIndex, 1)
 			if p.CurrIndex == 3600 {
 				p.CurrIndex = 0
 				log.Info("runner", "runed 1 hour")
@@ -97,16 +100,15 @@ func (p *Scheduler) Work() {
 	}
 }
 
-// todo 对于p.CurrIndex 应该加上原子操作
-// 或者锁, 你得去了解原子操作了
 func (p *Scheduler) GetCurrJobWraps() *[]*JobWrap {
-	jobs := &p.Tasks[p.CurrIndex].JobWraps
+	c := atomic.LoadInt32(&p.CurrIndex)
+	jobs := &p.Tasks[c].JobWraps
 	return jobs
 }
 
 // 删除所有相同job
-// todo 加锁
 func (p *Scheduler) DeleteJob(job Job) (ok bool) {
+	p.Lock()
 	deletedIds := []string{}
 	for i := 0; i < 3600; i++ {
 		jobWraps := &p.Tasks[i].JobWraps
@@ -120,6 +122,7 @@ func (p *Scheduler) DeleteJob(job Job) (ok bool) {
 			}
 		}
 	}
+	p.Unlock()
 
 	l := len(deletedIds)
 	log.Info("runner", "job deleted: (%v), count: %d", job, l)
@@ -144,14 +147,13 @@ func (p *Scheduler) DeleteThenAddJob(duration int64, job Job) (deleted bool) {
 }
 
 // 秒为单位
-// todo 加锁
 func (p *Scheduler) AddJob(duration int64, job Job) {
 	if duration < 0 {
 		duration = 0
 	}
 
 	deep := duration / 3600
-	index := int32(duration%3600) + p.CurrIndex
+	index := int32(duration%3600) + atomic.LoadInt32(&p.CurrIndex)
 	if index >= 3600 {
 		index = index % 3600
 		deep ++
@@ -166,7 +168,9 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 		return
 	}
 
+	p.Tasks[index].Lock()
 	p.Tasks[index].JobWraps = append(p.Tasks[index].JobWraps, jobWrap)
+	p.Tasks[index].Unlock()
 
 	// 持久化
 	if p.config.Persistence {
@@ -178,7 +182,28 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 	}
 }
 
-var testJobRunCount int32 = 0
+// 回滚一个job, 秒为单位
+func (p *Scheduler) rollbackJobWrap(duration int64, jobWrap *JobWrap) {
+	if duration < 0 {
+		duration = 0
+	}
+	deep := duration / 3600
+	index := int32(duration%3600) + atomic.LoadInt32(&p.CurrIndex)
+	if index >= 3600 {
+		index = index % 3600
+		deep ++
+	}
+
+	jobWrap.Deep = deep
+	if duration == 0 {
+		p.doJobs(&[]*JobWrap{jobWrap})
+		return
+	}
+
+	p.Tasks[index].Lock()
+	p.Tasks[index].JobWraps = append(p.Tasks[index].JobWraps, jobWrap)
+	p.Tasks[index].Unlock()
+}
 
 func (p *Scheduler) doJob(jobWrap *JobWrap) (err error) {
 	workC := make(chan error)
@@ -213,14 +238,12 @@ func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 		if jobWrap.Deep == 0 {
 			go func(jobWrap *JobWrap) {
 				jobWrap.Count++
-				atomic.AddInt32(&testJobRunCount, 1)
 				err := p.doJob(jobWrap)
-				//atomic.AddInt32(&testJobRunCount, -1)
 				if err != nil {
 					// retry 4 times
-					if jobWrap.Count < 2 {
-						var sleepTime int64 = 1
-						//sleepTime := jobWrap.Count*4 - 1
+					if jobWrap.Count < 5 {
+						//var sleepTime int64 = 1
+						sleepTime := jobWrap.Count*4 - 1
 						log.Warn("runner", "job will retry (%v) after %ds(%dth), err :%v", jobWrap.job, sleepTime, jobWrap.Count, err)
 
 						p.rollbackJobWrap(sleepTime, jobWrap)
@@ -232,7 +255,6 @@ func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 							if err != nil {
 								log.Error("runner-pers", err)
 							}
-
 						}
 					}
 				} else {
@@ -254,34 +276,6 @@ func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
 
 	*jobWraps = jobWrapsTemp
 
-}
-
-var testRollCount int32 = 0
-// 回滚一个job, 秒为单位
-// todo 锁
-func (p *Scheduler) rollbackJobWrap(duration int64, jobWrap *JobWrap) {
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	atomic.AddInt32(&testRollCount, 1)
-	if duration < 0 {
-		duration = 0
-	}
-	deep := duration / 3600
-	index := int32(duration%3600) + p.CurrIndex
-	if index >= 3600 {
-		index = index % 3600
-		deep ++
-	}
-
-	jobWrap.Deep = deep
-	if duration == 0 {
-		p.doJobs(&[]*JobWrap{jobWrap})
-		return
-	}
-
-	p.Tasks[index].JobWraps = append(p.Tasks[index].JobWraps, jobWrap)
 }
 
 func (p *Scheduler) Info() string {

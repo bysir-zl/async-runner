@@ -2,10 +2,9 @@ package core
 
 import (
 	"github.com/bysir-zl/bygo/cache"
+	"github.com/bysir-zl/bygo/log"
 	"github.com/bysir-zl/bygo/util/uuid"
 	"time"
-	"github.com/bysir-zl/bygo/log"
-	"sync"
 )
 
 var redis = cache.NewRedis("")
@@ -54,12 +53,7 @@ func addJob(jobWrap *JobWrap) (err error) {
 }
 
 func deleteJobs(jobIds []string) (aff int64, err error) {
-	ks := make([]interface{}, len(jobIds))
-	for i, id := range jobIds {
-		ks[i] = id
-	}
-
-	err = redis.HDEL(tableNameUndoJob, ks...)
+	err = redis.HDEL(tableNameUndoJob, jobIds...)
 	if err != nil {
 		return
 	}
@@ -68,14 +62,8 @@ func deleteJobs(jobIds []string) (aff int64, err error) {
 
 var willDeleteJobIds chan string = make(chan string, 2000)
 
-var lock sync.Mutex
-var testD = map[string]bool{}
-var testDc = 0
+
 func deleteJob(jobId string) (err error) {
-	lock.Lock()
-	defer lock.Unlock()
-	testDc++
-	testD[jobId]=true
 	willDeleteJobIds <- jobId
 	return
 }
@@ -90,9 +78,6 @@ func InitPersistence(redisHost string) {
 			case jobId := <-willDeleteJobIds:
 				ids = append(ids, jobId)
 			case <-time.Tick(time.Second * 5):
-				log.Info("testD",testDc,testRollCount)
-				log.Info("testD",testJobRunCount)
-
 				if len(ids) == 0 {
 					continue
 				}

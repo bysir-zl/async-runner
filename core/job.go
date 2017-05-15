@@ -2,8 +2,8 @@ package core
 
 import (
 	"bytes"
-	"strconv"
 	"errors"
+	"strconv"
 )
 
 type Job interface {
@@ -56,41 +56,3 @@ func (p *JobWrap) Marshal() (data []byte, err error) {
 	data = bf.Bytes()
 	return
 }
-
-//
-//
-//func PeAddJob(jobWrap *JobWrap) {
-//	err := addJob(jobWrap)
-//	if err != nil {
-//		log.Error("job", err)
-//	}
-//
-//	return
-//}
-//
-//func PeUpdateJobToSuccess(jobId string) {
-//	_, err := addJobLogSuccess(jobId)
-//	if err != nil {
-//		log.Error("job", err)
-//	}
-//
-//	return
-//}
-//
-//func PeUpdateJobToFail(jobId string, error string) {
-//	_, err := addJobLogFail(jobId, error)
-//	if err != nil {
-//		log.Error("job", err)
-//	}
-//
-//	return
-//}
-//
-//func PeDeleteJobsDb(jobIds []string) {
-//	_, err := deleteJobsLog(jobIds)
-//	if err != nil {
-//		log.Error("job", err)
-//	}
-//
-//	return
-//}
