@@ -28,6 +28,6 @@ func init() {
 
 	if c.Log {
 		orm.RegisterDb("default", "mysql", c.MysqlLink)
-		orm.RegisterModel((*core.JobModel)(nil))
+		orm.RegisterModel(new(core.JobModel))
 	}
 }
