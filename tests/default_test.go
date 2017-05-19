@@ -25,7 +25,7 @@ func TestHttpServer(t *testing.T) {
 
 // 2. 运行worker以接收回调
 func TestWorker(t *testing.T) {
-	c := client.NewHttpReceiver(":9999")
+	c := client.NewHttpReceiver(":9989")
 	c.AddListener("test", func(data []byte) (err error) {
 		log.Info("test", "runned1", data)
 		return
@@ -40,11 +40,11 @@ func TestWorker(t *testing.T) {
 
 // 3. 模拟发送一个job
 func TestHttpClintPush(t *testing.T) {
-	c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
+	c := client.NewHttpPusher("http://127.0.0.1:9999", "http://127.0.0.1:9989")
 
 	n := time.Now()
 	for i := 0; i < 1; i++ {
-		c.Add("test", 1, []byte{1, 10})
+		c.Add("test", 10, []byte{1, 10})
 	}
 	//c.Delete("test", []byte{1, 10})
 	//c.DeleteThenAdd("test", 10, []byte{1, 10})

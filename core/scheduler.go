@@ -84,9 +84,10 @@ func (p *Scheduler) LoadFormRedis() (err error) {
 // 开启工作循环
 func (p *Scheduler) Work() {
 	d := time.Second
+	t:=time.NewTicker(d).C
 	for {
 		select {
-		case <-time.Tick(d):
+		case <-t:
 			jobs := p.GetCurrJobWraps()
 			go p.doJobs(jobs)
 

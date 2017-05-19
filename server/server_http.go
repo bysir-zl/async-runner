@@ -37,6 +37,14 @@ func (p *HttpServer) Start() (err error) {
 	return
 }
 
+var (
+	strGet    = []byte("GET")
+	strHead   = []byte("HEAD")
+	strPost   = []byte("POST")
+	strPut    = []byte("PUT")
+	strDelete = []byte("DELETE")
+)
+
 func (p *HttpServer) handlerQuery(ctx *fasthttp.RequestCtx) {
 	req := ctx.Request
 	uri := req.URI()

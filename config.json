@@ -1,5 +1,5 @@
 {
-  "server_http": ":9989",
+  "server_http": ":9999",
   "persistence": true,
   "redis": "localhost:6379",
   "log": true,

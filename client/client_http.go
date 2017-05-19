@@ -29,6 +29,9 @@ func NewHttpReceiver(listenAddr string) *HttpReceiver {
 
 // callbackAddr 服务器地址，callbackAddr 回调地址 同时会监听回调地址以实现Listener功能
 func NewHttpPusher(serverAddr, callbackAddr string) *HttpPusher {
+	if serverAddr=="" || callbackAddr==""{
+		panic(errors.New("serverAddr or callbackAddr can't be empty"))
+	}
 	return &HttpPusher{
 		callbackAddr: callbackAddr,
 		serverAddr:   serverAddr,
@@ -37,6 +40,11 @@ func NewHttpPusher(serverAddr, callbackAddr string) *HttpPusher {
 
 // 开启阻塞服务
 func (p *HttpReceiver) StartServer() (err error) {
+	// host/do_job?topic=1234 -d="[]byte"
+	if p.listenAddr==""{
+		err = errors.New("listenAddr is empty")
+		return
+	}
 	err = fasthttp.ListenAndServe(p.listenAddr, func(ctx *fasthttp.RequestCtx) {
 		uri := ctx.Request.URI()
 		path := string(uri.Path())

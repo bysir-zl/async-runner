@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Async runner</title>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+</body>
+</html>
+
+
+<script>
+    var size = 1000
+    var radius = 400
+    var platelen = 10
+
+    var center = (size) / 2
+
+    var c = document.getElementById("canvas")
+    c.width = size
+    c.height = size
+    var ctx = c.getContext("2d")
+
+    ctx.beginPath();
+    ctx.strokeStyle = "blue";
+
+    var circle = {
+        x: center,    //圆心的x轴坐标值
+        y: center,    //圆心的y轴坐标值
+        r: radius      //圆的半径
+    };
+    //以canvas中的坐标点(100,100)为圆心，绘制一个半径为50px的圆形
+    ctx.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2, true);
+    ctx.stroke();
+
+    // 刻度
+    function drawScale(ctx) {
+        for (var i = 0; i < 360; i++) {
+            var X = center + radius * Math.sin(i * Math.PI / 180);
+            var Y = center - radius * Math.cos(i * Math.PI / 180);
+            var x = center + (radius - platelen) * Math.sin(i * Math.PI / 180);
+            var y = center - (radius - platelen) * Math.cos(i * Math.PI / 180);
+
+            ctx.beginPath();
+            ctx.moveTo(X, Y);
+            ctx.lineTo(x, y);
+            ctx.closePath();
+
+            ctx.stroke();
+        }
+    }
+
+    // 指针 index 0-3599
+    function drawPointer(ctx, index) {
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+
+        var x = center + (radius - platelen - 10) * Math.sin(index * Math.PI / 1800);
+        var y = center - (radius - platelen - 10) * Math.cos(index * Math.PI / 1800);
+
+        ctx.lineTo(x, y);
+        ctx.closePath();
+        ctx.stroke();
+    }
+
+    drawScale(ctx)
+    drawPointer(ctx, 1800)
+</script>
