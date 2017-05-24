@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
+	"net/http"
 	"strings"
 )
 
@@ -29,7 +30,7 @@ func NewHttpReceiver(listenAddr string) *HttpReceiver {
 
 // callbackAddr 服务器地址，callbackAddr 回调地址 同时会监听回调地址以实现Listener功能
 func NewHttpPusher(serverAddr, callbackAddr string) *HttpPusher {
-	if serverAddr=="" || callbackAddr==""{
+	if serverAddr == "" || callbackAddr == "" {
 		panic(errors.New("serverAddr or callbackAddr can't be empty"))
 	}
 	return &HttpPusher{
@@ -41,7 +42,7 @@ func NewHttpPusher(serverAddr, callbackAddr string) *HttpPusher {
 // 开启阻塞服务
 func (p *HttpReceiver) StartServer() (err error) {
 	// host/do_job?topic=1234 -d="[]byte"
-	if p.listenAddr==""{
+	if p.listenAddr == "" {
 		err = errors.New("listenAddr is empty")
 		return
 	}
@@ -85,7 +86,37 @@ func (p *HttpReceiver) Commit(topic string, data []byte) (err error) {
 	}
 
 	return
+}
 
+// 处理来自的async-runner的http回调请求
+// 最后直接响应response就行了
+func (p *HttpReceiver) HandleRequest(req *http.Request) (response string) {
+	req.ParseForm()
+
+	path := req.URL.Path
+	pathS := strings.Split(path, "/")
+	if len(pathS) <= 1 {
+		response = "bad path:" + path
+		return
+	}
+	topic := req.FormValue("topic")
+
+	data := []byte(req.FormValue("data"))
+
+	action := pathS[len(pathS)-1]
+	if action == "do_job" {
+		err := p.Commit(topic, data)
+		if err != nil {
+			response = err.Error()
+			return
+		}
+	} else {
+		response = "bad action:" + action
+		return
+	}
+
+	response = "success"
+	return
 }
 
 // HttpPusher
