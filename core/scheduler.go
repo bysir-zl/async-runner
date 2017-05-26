@@ -84,20 +84,16 @@ func (p *Scheduler) LoadFormRedis() (err error) {
 // 开启工作循环
 func (p *Scheduler) Work() {
 	d := time.Second
-	t:=time.NewTicker(d).C
-	for {
-		select {
-		case <-t:
-			jobs := p.GetCurrJobWraps()
-			go p.doJobs(jobs)
+	t := time.NewTicker(d).C
+	for range t {
+		go p.doCurrJobs()
 
-			atomic.AddInt32(&p.CurrIndex, 1)
-			if p.CurrIndex == 3600 {
-				p.CurrIndex = 0
-				log.Info("runner", "runed 1 hour")
-				// 应该是上一次时间的一个小时后
-				// todo 可能会延后,应当修复时间
-			}
+		atomic.AddInt32(&p.CurrIndex, 1)
+		if p.CurrIndex == 3600 {
+			p.CurrIndex = 0
+			log.Info("runner", "runed 1 hour ", time.Now())
+			// 应该是上一次时间的一个小时后
+			// todo 可能会延后,应当修复时间
 		}
 	}
 }
@@ -226,6 +222,11 @@ func (p *Scheduler) doJob(jobWrap *JobWrap) (err error) {
 	}
 
 	return
+}
+
+func (p *Scheduler) doCurrJobs() {
+	jobs := p.GetCurrJobWraps()
+	p.doJobs(jobs)
 }
 
 func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
