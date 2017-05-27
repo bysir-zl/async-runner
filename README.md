@@ -30,6 +30,19 @@ c := client.NewHttpPusher("http://127.0.0.1:9989", "http://127.0.0.1:9999")
 c.Add("test", 1, []byte{1, 10})
 ```
 
-顺利的话就你能看到log: run [1,10]
+顺利的话就你能在Worker里看到log: run [1,10]
 
 代码详情请看`tests/default_test.go`
+
+## conf
+
+```
+{
+  "server_http": ":9999", // 服务器监听的地址
+  "persistence": true, // 持久化到Redis
+  "redis": "localhost:6379", // redis host
+  "log": true, // 暂无用
+  "mysql": "root:@tcp(localhost:3306)/test", // 暂无用
+  "retry":[3,7,17,30] // 代表任务失败重试4次,4次间隔时间为3 7 17 30秒
+}
+```
