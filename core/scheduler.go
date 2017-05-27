@@ -86,15 +86,7 @@ func (p *Scheduler) Work() {
 	d := time.Second
 	t := time.NewTicker(d).C
 	for range t {
-		go p.doCurrJobs()
-
-		atomic.AddInt32(&p.CurrIndex, 1)
-		if p.CurrIndex == 3600 {
-			p.CurrIndex = 0
-			log.Info("runner", "runed 1 hour ", time.Now())
-			// 应该是上一次时间的一个小时后
-			// todo 可能会延后,应当修复时间
-		}
+		go p.doCurrJobsAndNext()
 	}
 }
 
@@ -224,9 +216,16 @@ func (p *Scheduler) doJob(jobWrap *JobWrap) (err error) {
 	return
 }
 
-func (p *Scheduler) doCurrJobs() {
+func (p *Scheduler) doCurrJobsAndNext() {
 	jobs := p.GetCurrJobWraps()
 	p.doJobs(jobs)
+
+	atomic.AddInt32(&p.CurrIndex, 1)
+	if p.CurrIndex == 3600 {
+		p.CurrIndex = 0
+		log.Info("runner", "runed 1 hour ", time.Now())
+		// 应该一个小时调用一次
+	}
 }
 
 func (p *Scheduler) doJobs(jobWraps *[]*JobWrap) {
