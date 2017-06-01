@@ -40,11 +40,11 @@ func TestWorker(t *testing.T) {
 
 // 3. 模拟发送一个job
 func TestHttpClintPush(t *testing.T) {
-	c := client.NewHttpPusher("http://127.0.0.1:9999", "http://10.8.210.233:8070/v1/async_runner")
+	c := client.NewHttpPusher("http://127.0.0.1:9999", "http://127.0.0.1:9989/")
 
 	n := time.Now()
 	for i := 0; i < 1; i++ {
-		c.Add("test", 1, []byte{1, 10})
+		c.Add("test", 1800, []byte{1, 10})
 	}
 	//c.Delete("test", []byte{1, 10})
 	//c.DeleteThenAdd("test", 10, []byte{1, 10})

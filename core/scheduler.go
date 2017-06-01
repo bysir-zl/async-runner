@@ -74,8 +74,8 @@ func (p *Scheduler) LoadFormRedis() (err error) {
 
 	now := time.Now()
 	for _, jobWrap := range *jobWraps {
-		d := time.Unix(jobWrap.RunTime, 0).Sub(now)
-		p.rollbackJobWrap(int64(d), jobWrap)
+		d := int64(time.Unix(jobWrap.RunTime, 0).Sub(now).Seconds())
+		p.rollbackJobWrap(d, jobWrap)
 	}
 
 	return
@@ -164,7 +164,7 @@ func (p *Scheduler) AddJob(duration int64, job Job) {
 
 	// 持久化
 	if p.config.Persistence {
-		jobWrap.RunTime = time.Now().Add(time.Duration(duration)).Unix()
+		jobWrap.RunTime = time.Now().Add(time.Duration(duration) * time.Second).Unix()
 		err := addJob(jobWrap)
 		if err != nil {
 			log.Error("runner-pers", err)
