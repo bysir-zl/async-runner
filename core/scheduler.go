@@ -117,9 +117,9 @@ func (p *Scheduler) DeleteJob(job Job) (ok bool) {
 	l := len(deletedIds)
 	log.Info("runner", "job deleted: (%v), count: %d", job, l)
 
-	ok = l == 0
+	ok = l != 0
 
-	if p.config.Persistence {
+	if l != 0 && p.config.Persistence {
 		_, err := deleteJobs(deletedIds)
 		if err != nil {
 			log.Error("runner-pers", err)
