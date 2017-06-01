@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type HttpServer struct {
@@ -29,7 +30,7 @@ func NewHttpServer(c *core.SchedulerConfig) *HttpServer {
 
 func (p *HttpServer) Start() (err error) {
 	go p.s.Work()
-	log.Info("server_http", "start server success")
+	log.Info("server_http", "start server success",time.Now())
 	err = fasthttp.ListenAndServe(p.c.ServerHttp, func(ctx *fasthttp.RequestCtx) {
 		p.handlerQuery(ctx)
 		return
